@@ -2,6 +2,7 @@
 import rospy
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import CameraInfo
+from sensor_msgs.msg import PointCloud2
 import ros_numpy
 import pyrealsense2
 
@@ -13,9 +14,9 @@ class ImageListener():
         self.sub_info = rospy.Subscriber('/camera/depth/camera_info', CameraInfo, self.imageDepthInfoCallback)
         self.intrinsics = None
 
-    def imageDepthCallback(self, data):
+    def imageDepthCallback(self, image):
         try:
-            np_image = ros_numpy.numpify(data)
+            np_image = ros_numpy.numpify(image)
             pixel = (np_image.shape[1]//2, np_image.shape[0]//2)
             if self.intrinsics:
                 depth = np_image[pixel[1], pixel[0]]
@@ -24,21 +25,6 @@ class ImageListener():
             
         except Exception as e:
             print(f"Error in imageDepthCallback: {str(e)}")
-
-        # try:
-        #     print(data.encoding)
-        #     cv_image = self.bridge.imgmsg_to_cv2(data, "16UC1")
-        #     pix = (data.width/2, data.height/2)
-        #     # sys.stdout.write('%s: Depth at center(%d, %d): %f(mm)\r' % (self.topic, pix[0], pix[1], cv_image[pix[1], pix[0]]))
-        #     # sys.stdout.flush()
-        #     if self.intrinsics:
-        #         depth = cv_image[pix[1], pix[0]]
-        #         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-        #         print('result:', result)
-
-        # except CvBridgeError as e:
-        #     print(e)
-        #     return
 
     def imageDepthInfoCallback(self, cameraInfo):
         try:
@@ -60,9 +46,28 @@ class ImageListener():
             print(f"Error in imageDepthInfoCallback: {str(e)}")
             return
 
-def main():
-    topic = '/camera/depth/image_rect_raw'
-    listener = ImageListener(topic)
+class PointCloudListener():
+
+    def __init__(self, topic):
+        self.topic = topic
+        self.sub = rospy.Subscriber(self.topic, PointCloud2, self.pointCloudCallback)
+
+    def pointCloudCallback(self, points):
+        try:
+            np_points = ros_numpy.numpify(points)
+            pixel = (np_points.shape[0]//2, np_points.shape[1]//2)
+            x_point, y_point, z_point, _ = np_points[pixel[0], pixel[1]]
+            print(z_point)
+        except Exception as e:
+            print(f"Error in pointCloudCallback: {str(e)}")
+
+def main(foo="points"):
+    if foo == "points":
+        topic = "/camera/depth/color/points"
+        listener = PointCloudListener(topic)
+    else:
+        topic = '/camera/depth/image_rect_raw'
+        listener = ImageListener(topic)
     rospy.spin()
 
 if __name__ == '__main__':
